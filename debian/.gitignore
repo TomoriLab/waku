@@ -1,0 +1,10 @@
+/.debhelper/
+/cargo-target/
+/debhelper-build-stamp
+/files
+/tmp/
+/waku/
+/waku-dbgsym/
+/*.debhelper
+/*.debhelper.log
+/*.substvars

@@ -1,0 +1,61 @@
+#!/bin/sh
+
+set -eu
+
+project_root="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
+temporary_dir="$(mktemp -d "${AUTOPKGTEST_TMP:-${TMPDIR:-/tmp}}/waku-build-tools.XXXXXX")"
+trap 'rm -rf -- "$temporary_dir"' EXIT
+mkdir "$temporary_dir/bin"
+for tool in awk sed dpkg; do
+  ln -s "$(command -v "$tool")" "$temporary_dir/bin/$tool"
+done
+
+write_tool() {
+  cat > "$temporary_dir/bin/$1" <<EOF
+#!/bin/sh
+printf '%s\n' '$2'
+EOF
+  chmod 755 "$temporary_dir/bin/$1"
+}
+
+check_tools() {
+  PATH="$temporary_dir/bin" "$project_root/debian/check-build-tools"
+}
+
+expect_failure() {
+  if check_tools > "$temporary_dir/error.log" 2>&1; then
+    printf 'Expected the build tool check to fail: %s\n' "$1" >&2
+    exit 1
+  fi
+  grep -F "$1" "$temporary_dir/error.log" >/dev/null
+}
+
+write_tool cargo 'cargo 1.96.0 (test)'
+write_tool rustc 'rustc 1.96.0 (test)'
+write_tool bun '1.3.11'
+check_tools
+
+write_tool cargo 'cargo 1.95.0 (test)'
+expect_failure 'cargo 1.96.0 or newer is required; found 1.95.0.'
+write_tool cargo 'cargo 1.96.0 (test)'
+write_tool rustc 'rustc 1.95.0 (test)'
+expect_failure 'rustc 1.96.0 or newer is required; found 1.95.0.'
+write_tool rustc 'rustc 1.96.0-beta.1 (test)'
+expect_failure 'rustc 1.96.0 or newer is required; found 1.96.0-beta.1.'
+write_tool rustc 'rustc 1.97.0-nightly (test)'
+check_tools
+
+write_tool cargo 'cargo invalid'
+expect_failure 'cargo 1.96.0 or newer is required; found invalid.'
+write_tool cargo 'cargo 1.96.0 (test)'
+rm "$temporary_dir/bin/bun"
+expect_failure 'required build tool bun was not found in PATH.'
+printf '#!/bin/sh\nexit 1\n' > "$temporary_dir/bin/bun"
+chmod 755 "$temporary_dir/bin/bun"
+expect_failure 'unable to run bun --version.'
+
+rm "$temporary_dir/bin/cargo" "$temporary_dir/bin/rustc" "$temporary_dir/bin/bun"
+expect_failure 'required build tool cargo was not found in PATH.'
+grep -F 'required build tool rustc was not found in PATH.' "$temporary_dir/error.log" >/dev/null
+grep -F 'required build tool bun was not found in PATH.' "$temporary_dir/error.log" >/dev/null
+printf 'Build tool checks passed.\n'

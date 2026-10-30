@@ -1,0 +1,7 @@
+Tests: package-layout
+Depends: @, desktop-file-utils, binutils
+Restrictions: superficial
+
+Tests: build-tools
+Depends: dpkg, mawk, sed
+Restrictions: superficial

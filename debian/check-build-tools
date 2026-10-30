@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -eu
+
+failed=0
+for tool in cargo rustc bun; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf 'Error: required build tool %s was not found in PATH.\n' "$tool" >&2
+    failed=1
+    continue
+  fi
+  if ! output="$("$tool" --version 2>/dev/null)"; then
+    printf 'Error: unable to run %s --version.\n' "$tool" >&2
+    failed=1
+    continue
+  fi
+  case "$tool" in
+    cargo|rustc)
+      version="$(printf '%s\n' "$output" | awk 'NR == 1 { print $2; exit }')"
+      # Debian sorts prereleases before the corresponding stable toolchain version.
+      comparable_version="$(printf '%s\n' "$version" | sed 's/-/~/')"
+      if ! dpkg --validate-version "$comparable_version" >/dev/null 2>&1 || \
+         ! dpkg --compare-versions "$comparable_version" ge 1.96.0; then
+        printf 'Error: %s 1.96.0 or newer is required; found %s.\n' "$tool" "$version" >&2
+        failed=1
+      fi
+      ;;
+  esac
+done
+
+exit "$failed"

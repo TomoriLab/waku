@@ -1,0 +1,48 @@
+Source: waku
+Section: devel
+Priority: optional
+Maintainer: Haze Lee <hazelee@realignist.me>
+Build-Depends:
+ debhelper-compat (= 13),
+ cargo (>= 1.96) <!pkg.waku.external-toolchain>,
+ rustc (>= 1.96) <!pkg.waku.external-toolchain>,
+ bun <!pkg.waku.external-toolchain>,
+ clang,
+ cmake,
+ pkg-config,
+ libfontconfig-dev,
+ libvulkan1,
+ libwayland-dev,
+ libx11-xcb-dev,
+ libxi-dev,
+ libxtst-dev,
+ libxkbcommon-x11-dev,
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+Homepage: https://waku.sh
+Vcs-Git: https://github.com/TomoriLab/waku.git
+Vcs-Browser: https://github.com/TomoriLab/waku
+
+Package: waku
+Architecture: amd64 arm64
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ libegl1,
+ libfontconfig1,
+ libgl1,
+ libvulkan1,
+ libwayland-client0,
+ libwayland-cursor0,
+ libx11-6,
+ libx11-xcb1,
+ libxcb1,
+ libxkbcommon0,
+ libxkbcommon-x11-0,
+ xdg-desktop-portal,
+ xdg-utils,
+Recommends: mesa-vulkan-drivers | vulkan-icd
+Description: native control plane for local coding agents
+ Waku is a native desktop application for working with local coding agents.
+ It includes the provider daemon, JavaScript REPL, and Computer Use helpers.
+ Updates to this installation are managed by the system package manager.

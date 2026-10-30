@@ -1,0 +1,94 @@
+# Debian packaging
+
+This directory provides debhelper-based packaging for native amd64 and arm64
+builds. Application source files and the existing bundle scripts are unchanged.
+
+## Build
+
+Install the native library and packaging Build-Depends listed in
+debian/control. Rust and Cargo 1.96 or newer and Bun must be available in PATH.
+
+For tools installed through rustup or standalone installers, use the external
+toolchain profile:
+
+```sh
+export PATH="$HOME/.bun/bin:$PATH"
+dpkg-checkbuilddeps -Ppkg.waku.external-toolchain
+dpkg-buildpackage -b -us -uc -Ppkg.waku.external-toolchain
+```
+
+This profile excludes only the cargo, rustc, and bun Debian package
+dependencies. All other package dependencies remain checked. The build always
+runs debian/check-build-tools to verify the actual executables and the Rust
+and Cargo minimum versions before compiling. It does not install or download
+tools. The Bun directory above is the standalone installer's default; adjust
+PATH if Bun is installed elsewhere.
+
+When all three tools are installed as Debian packages, the default build is:
+
+```sh
+dpkg-checkbuilddeps
+dpkg-buildpackage -b -us -uc
+```
+
+The build invokes scripts/bundle-linux.sh with a separate CARGO_TARGET_DIR
+under debian/cargo-target. It preserves the existing target directory and the
+dev watcher. Native builds only are supported because the bundle assembler
+selects SDK artifacts for the build host. The upstream version in
+`debian/changelog` must match Cargo.toml; map a SemVer prerelease separator
+`-` to `~` in the Debian version.
+
+The resulting `waku_<version>-<revision>_<architecture>.deb`, `.changes`, and
+`.buildinfo` files are written to the parent directory by dpkg-buildpackage.
+Build in a disposable checkout if that output location is not appropriate.
+
+## Install and update
+
+```sh
+sudo apt install ../waku_0.1.20-1_amd64.deb
+```
+
+Use the arm64 package on arm64 systems. Waku and its private helpers retain
+their bin/share layout under /usr/lib/waku. The package provides /usr/bin/waku
+and installs the desktop entry and icon under /usr/share. The tarball
+self-update marker is excluded, so updates must be installed through APT or
+another package manager. No APT repository is configured.
+
+A user-local tarball installation may shadow the system package in PATH or
+the applications menu. Remove that installation before switching to the
+Debian package. Removing or purging this package does not remove ~/.waku.
+
+## Validation
+
+Run the build-tool regression test without building or installing Waku:
+
+```sh
+debian/tests/build-tools
+```
+
+It uses an isolated PATH to check minimum versions, prereleases, missing
+tools, malformed version output, and executable failures.
+
+The superficial autopkgtest checks the installed binaries, helper resources,
+launcher symlink, desktop entry, and absence of the self-update marker. It
+does not open a window or exercise provider integrations. It can also inspect
+an extracted package without installing it:
+
+```sh
+dpkg-deb -x ../waku_0.1.20-1_amd64.deb /tmp/waku-package-test
+WAKU_TEST_ROOT=/tmp/waku-package-test debian/tests/package-layout
+```
+
+## Distribution limits
+
+The existing build downloads Cargo dependencies, a pinned Cua SDK, and its
+source, and builds the SDK with Waku's existing host extension. This packaging
+supports local binary builds; it does not make the upstream build offline or
+suitable for upload to the Debian archive. A complete dependency license and
+source audit is still required before redistribution through that archive.
+
+`${shlibs:Depends}` is generated from the packaged ELF files. Dependencies
+loaded at runtime by the graphics/windowing stack and the desktop portal are
+also declared explicitly. Build on the oldest distribution intended to be
+supported: newer build hosts can raise the minimum library versions. A working
+graphics driver and a suitable desktop portal backend remain necessary.

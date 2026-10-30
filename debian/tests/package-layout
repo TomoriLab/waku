@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+# A prefix allows the same checks to inspect an extracted package without installing it.
+root="${WAKU_TEST_ROOT:-}"
+private_prefix="$root/usr/lib/waku"
+
+for executable in waku waku-daemon waku-updater waku_js_repl waku_computer_use; do
+  test -x "$private_prefix/bin/$executable"
+  readelf --file-header "$private_prefix/bin/$executable" >/dev/null
+done
+readelf --file-header "$private_prefix/bin/libcua_driver_sdk.so" >/dev/null
+test -L "$root/usr/bin/waku"
+test "$(readlink -f "$root/usr/bin/waku")" = "$private_prefix/bin/waku"
+test ! -e "$private_prefix/share/waku/self-update-v1"
+test -d "$private_prefix/share/waku/computer-use/wayland-helper"
+test -f "$private_prefix/share/waku/computer-use/pi-extension.ts"
+test -f "$private_prefix/share/waku/computer-use/CUA-LICENSE"
+test -f "$private_prefix/share/waku/skills/waku-computer-use/SKILL.md"
+test -f "$root/usr/share/icons/hicolor/256x256/apps/sh.waku.png"
+test -f "$root/usr/share/doc/waku/copyright"
+desktop-file-validate "$root/usr/share/applications/sh.waku.desktop"

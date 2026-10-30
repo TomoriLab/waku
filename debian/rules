@@ -1,0 +1,47 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+include /usr/share/dpkg/pkg-info.mk
+
+# Packaging owns its build directory and must not disturb the development watcher.
+export CARGO_TARGET_DIR = $(CURDIR)/debian/cargo-target
+
+WAKU_VERSION := $(shell sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+RUST_TARGET_amd64 = x86_64-unknown-linux-gnu
+RUST_TARGET_arm64 = aarch64-unknown-linux-gnu
+RUST_TARGET = $(RUST_TARGET_$(DEB_HOST_ARCH))
+BUNDLE = $(CARGO_TARGET_DIR)/release/waku-$(WAKU_VERSION)-$(RUST_TARGET).tar.gz
+PRIVATE_PREFIX = debian/tmp/usr/lib/waku
+
+%:
+	dh $@ --buildsystem=none
+
+override_dh_auto_build:
+	test -n "$(RUST_TARGET)"
+	test "$(DEB_BUILD_ARCH)" = "$(DEB_HOST_ARCH)"
+	test "$(DEB_VERSION_UPSTREAM)" = "$$(printf '%s' '$(WAKU_VERSION)' | sed 's/-/~/')"
+	debian/check-build-tools
+	./scripts/bundle-linux.sh
+
+override_dh_auto_install:
+	install -d "$(PRIVATE_PREFIX)"
+	tar -xzf "$(BUNDLE)" --strip-components=1 -C "$(PRIVATE_PREFIX)" --no-same-owner
+	for executable in waku waku-daemon waku-updater waku_js_repl waku_computer_use; do \
+		test -x "$(PRIVATE_PREFIX)/bin/$$executable" || exit 1; \
+	done
+	test -f "$(PRIVATE_PREFIX)/bin/libcua_driver_sdk.so"
+	test -d "$(PRIVATE_PREFIX)/share/waku/computer-use/wayland-helper"
+	test -f "$(PRIVATE_PREFIX)/share/waku/computer-use/pi-extension.ts"
+	test -f "$(PRIVATE_PREFIX)/share/waku/skills/waku-computer-use/SKILL.md"
+	install -Dm644 "$(PRIVATE_PREFIX)/share/applications/sh.waku.desktop" \
+		debian/tmp/usr/share/applications/sh.waku.desktop
+	install -Dm644 "$(PRIVATE_PREFIX)/share/icons/hicolor/256x256/apps/sh.waku.png" \
+		debian/tmp/usr/share/icons/hicolor/256x256/apps/sh.waku.png
+	# Only the user-local tarball installer may opt in to replacing the install prefix.
+	rm -f "$(PRIVATE_PREFIX)/share/waku/self-update-v1"
+	rm -rf "$(PRIVATE_PREFIX)/share/applications" "$(PRIVATE_PREFIX)/share/icons" "$(PRIVATE_PREFIX)/share/licenses"
+
+override_dh_shlibdeps:
+	dh_shlibdeps -l$(CURDIR)/debian/waku/usr/lib/waku/bin
+
+.PHONY: override_dh_auto_build override_dh_auto_install override_dh_shlibdeps
